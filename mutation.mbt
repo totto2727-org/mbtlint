@@ -7,25 +7,42 @@ pub fn no_mut() -> Rule {
         if item.args is Some(args) {
           for arg in args {
             if arg.mut_ {
-              let loc = match arg.label { Some(label) => label.loc; None => arg.ty.loc() }
+              let loc = match arg.label {
+                Some(label) => label.loc
+                None => arg.ty.loc()
+              }
               (ctx.report)(loc, "Use an immutable constructor field.")
             }
           }
         }
       }
     }
-    Listener(on_decl=decl => {
-      if decl is TopTypeDef(t) {
-        match t.components {
-          Record(fields~, ..) => for f in fields {
-            if f.mut_ { (ctx.report)(f.name.loc, "Use an immutable record field.") }
+    Listener(
+      on_decl=decl => {
+        if decl is TopTypeDef(t) {
+          match t.components {
+            Record(fields~, ..) =>
+              for f in fields {
+                if f.mut_ {
+                  (ctx.report)(f.name.loc, "Use an immutable record field.")
+                }
+              }
+            Variant(cs)
+            | Error(EnumPayload(cs))
+            | ExtensibleEnum(Some(cs))
+            | ExtendEnum(constructors=cs, ..) => constructors(cs)
+            _ => ()
           }
-          Variant(cs) | Error(EnumPayload(cs)) | ExtensibleEnum(Some(cs)) | ExtendEnum(constructors=cs, ..) => constructors(cs)
-          _ => ()
         }
-      }
-    }, on_expr=expr => {
-      if expr is LetMut(binder~, ..) { (ctx.report)(binder.loc, "Replace `let mut` with an immutable binding or a fold.") }
-    })
+      },
+      on_expr=expr => {
+        if expr is LetMut(binder~, ..) {
+          (ctx.report)(
+            binder.loc,
+            "Replace `let mut` with an immutable binding or a fold.",
+          )
+        }
+      },
+    )
   })
 }

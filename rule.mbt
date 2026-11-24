@@ -41,7 +41,9 @@ pub struct Context {
 ///|
 /// Return the original text at an official parser location in this file.
 pub fn Context::text(self : Context, loc : @basic.Location) -> String? {
-  guard self.offsets.range(self.path, loc) is Some((start, end)) else { return None }
+  guard self.offsets.range(self.path, loc) is Some((start, end)) else {
+    return None
+  }
   Some(self.source[start:end].to_owned())
 }
 
@@ -67,7 +69,11 @@ pub struct Rule {
 }
 
 ///|
-pub fn Rule::Rule(id : String, create : (Context) -> Listener, revision? : String) -> Rule {
+pub fn Rule::Rule(
+  id : String,
+  create : (Context) -> Listener,
+  revision? : String,
+) -> Rule {
   { id, revision, create, }
 }
 

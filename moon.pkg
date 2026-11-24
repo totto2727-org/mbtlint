@@ -13,3 +13,7 @@ import {
   "moonbitlang/x/fs",
   "totto2727/admiral",
 }
+
+import {
+  "moonbitlang/async",
+} for "test"
