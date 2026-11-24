@@ -7,7 +7,6 @@ priv enum CollectionOperation {
   FindAny
   CheckAll
   FindFirst
-  FoldItems
 }
 
 ///|
@@ -77,8 +76,7 @@ fn collection_push(expr : @syntax.Expr, target : String) -> @syntax.Expr? {
       args=More({ kind: Positional, value, }, tail=Empty),
       return_self=false,
       ..
-    ) if collection_name(self) == Some(target) &&
-      collection_callback(value, Some(target)) => Some(value)
+    ) if collection_name(self) == Some(target) => Some(value)
     _ => None
   }
 }
@@ -86,7 +84,8 @@ fn collection_push(expr : @syntax.Expr, target : String) -> @syntax.Expr? {
 ///|
 fn collection_build(
   expr : @syntax.Expr,
-) -> (CollectionOperation, @basic.Location)? {
+  advice : (CollectionOperation) -> String?,
+) -> (String, @basic.Location)? {
   guard expr is Let(pattern~, expr=seed, body=sequence, ..) else { return None }
   let target = match pattern {
     Var(binder) | Constraint(pat=Var(binder), ..) => binder.name
@@ -111,35 +110,37 @@ fn collection_build(
       label=None,
       loc~,
     ) &&
-    item.name != target &&
-    collection_source(source, Some(target)) else {
+    item.name != target else {
     return None
   }
-  let kind = match collection_unwrap(body) {
-    If(cond~, ifso~, ifnot=None, ..) if collection_callback(cond, Some(target)) => {
-      guard collection_push(ifso, target) is Some(value) else { return None }
-      if collection_name(value) == Some(item.name) {
-        FilterItems
-      } else {
-        FilterMapItems
-      }
-    }
-    step => {
-      guard collection_push(step, target) is Some(value) else { return None }
-      if collection_name(value) == Some(item.name) {
-        TransferItems
-      } else {
-        MapItems
-      }
-    }
+  let (step, condition) = match collection_unwrap(body) {
+    If(cond~, ifso~, ifnot=None, ..) => (ifso, Some(cond))
+    step => (step, None)
   }
-  Some((kind, loc))
+  guard collection_push(step, target) is Some(value) else { return None }
+  let identity = collection_name(value) == Some(item.name)
+  let kind = match (condition, identity) {
+    (None, true) => TransferItems
+    (None, false) => MapItems
+    (Some(_), true) => FilterItems
+    (Some(_), false) => FilterMapItems
+  }
+  guard advice(kind) is Some(message) &&
+    collection_source(source, Some(target)) &&
+    collection_callback(value, Some(target)) else {
+    return None
+  }
+  if condition is Some(cond) && !collection_callback(cond, Some(target)) {
+    return None
+  }
+  Some((message, loc))
 }
 
 ///|
 fn collection_search(
   expr : @syntax.Expr,
-) -> (CollectionOperation, @basic.Location)? {
+  advice : (CollectionOperation) -> String?,
+) -> (String, @basic.Location)? {
   guard expr
     is ForEach(
       patterns=More(Var(item), tail=Empty),
@@ -151,12 +152,10 @@ fn collection_search(
       where_clause=None,
       label=None,
       loc~,
-    ) &&
-    collection_source(source, None) else {
+    ) else {
     return None
   }
-  guard collection_unwrap(body) is If(cond~, ifso~, ifnot=None, ..) &&
-    collection_callback(cond, None) else {
+  guard collection_unwrap(body) is If(cond~, ifso~, ifnot=None, ..) else {
     return None
   }
   guard collection_unwrap(ifso) is Break(arg=Some(hit), label=None, ..) else {
@@ -181,7 +180,12 @@ fn collection_search(
     ) if collection_name(value) == Some(item.name) => FindFirst
     _ => return None
   }
-  Some((kind, loc))
+  guard advice(kind) is Some(message) &&
+    collection_source(source, None) &&
+    collection_callback(cond, None) else {
+    return None
+  }
+  Some((message, loc))
 }
 
 ///|
@@ -195,9 +199,7 @@ fn collection_fold_update(expr : @syntax.Expr, accumulator : String) -> Bool {
 }
 
 ///|
-fn collection_fold(
-  expr : @syntax.Expr,
-) -> (CollectionOperation, @basic.Location)? {
+fn collection_fold(expr : @syntax.Expr) -> @basic.Location? {
   match expr {
     ForEach(
       patterns=More(Var(item), tail=Empty),
@@ -216,7 +218,7 @@ fn collection_fold(
         Continue(args=More(step, tail=Empty), label=None, ..) if collection_fold_update(
             step,
             acc.name,
-          ) => Some((FoldItems, loc))
+          ) => Some(loc)
         _ => None
       }
     LetMut(
@@ -250,7 +252,7 @@ fn collection_fold(
         None => collection_fold_update(step, acc.name)
       }
       if eligible {
-        Some((FoldItems, loc))
+        Some(loc)
       } else {
         None
       }
@@ -262,13 +264,15 @@ fn collection_fold(
 ///|
 fn collection_advice(
   id : String,
-  classify : (@syntax.Expr) -> (CollectionOperation, @basic.Location)?,
+  classify : (@syntax.Expr, (CollectionOperation) -> String?) -> (
+    String,
+    @basic.Location,
+  )?,
   advice : (CollectionOperation) -> String?,
 ) -> Rule {
   builtin_rule(id, ctx => {
     Listener(on_expr=expr => {
-      if classify(expr) is Some((operation, loc)) &&
-        advice(operation) is Some(message) {
+      if classify(expr, advice) is Some((message, loc)) {
         (ctx.report)(loc, message)
       }
     })
@@ -348,14 +352,14 @@ pub fn prefer_collection_find() -> Rule {
 
 ///|
 pub fn prefer_collection_fold() -> Rule {
-  collection_advice("prefer-collection-fold", collection_fold, operation => {
-    match operation {
-      FoldItems =>
-        Some(
-          "Consider fold to compute this accumulator from the items in order.",
+  builtin_rule("prefer-collection-fold", ctx => {
+    Listener(on_expr=expr => {
+      if collection_fold(expr) is Some(loc) {
+        (ctx.report)(
+          loc, "Consider fold to compute this accumulator from the items in order.",
         )
-      _ => None
-    }
+      }
+    })
   })
 }
 

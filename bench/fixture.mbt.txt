@@ -1,0 +1,64 @@
+pub struct State { mut count : Int }
+pub fn accumulate(a : Int, b : Int, c : Int, d : Int) -> Int {
+  a + b + c + d
+}
+
+test "same" {}
+test "same" {}
+test {}
+
+fn usage(xs : Array[Int], label : Int, x : Bool, y : Bool) -> Unit raise {
+  ignore(State::{ count: count })
+  call(label=label)
+  consume(fn(value) { value + 1 })
+  @fs.path_exists("root" + "/" + "name")
+  ignore(xs.unwrap())
+  ignore(xs.unsafe_get(0))
+  try! run()
+  try { run() } catch { e => raise e }
+  ignore(if x { true } else { false })
+  ignore(match x { true => true; false => false })
+  ignore(x is true)
+  if false { ignore(y) }
+  ignore(true && y)
+  let mut value = 0
+  value = value
+  ...
+}
+
+fn read_config() -> String { try read() catch { _ => "" } }
+fn try_read_config() -> String { abort("cannot read") }
+fn parse_config(value : String) -> String { println(value); value }
+
+fn map(xs : Array[Int]) -> Array[Int] {
+  let out = []
+  for x in xs { out.push(transform(x, x + 2, x * 3)) }
+  out
+}
+fn filter(xs : Array[Int]) -> Array[Int] {
+  let out = []
+  for x in xs { if accept(x, x + 2, x * 3) { out.push(x) } }
+  out
+}
+fn filter_map(xs : Array[Int]) -> Array[Int] {
+  let out = []
+  for x in xs { if accept(x, x + 2, x * 3) { out.push(x + 1) } }
+  out
+}
+fn transfer(xs : Array[Int]) -> Array[Int] {
+  let out = []
+  for x in xs.iter() { out.push(x) }
+  out
+}
+fn any(xs : Array[Int]) -> Bool {
+  for x in xs { if accept(x, x + 2, x * 3) { break true } } nobreak { false }
+}
+fn all(xs : Array[Int]) -> Bool {
+  for x in xs { if !accept(x, x + 2, x * 3) { break false } } nobreak { true }
+}
+fn first(xs : Array[Int]) -> Int? {
+  for x in xs { if accept(x, x + 2, x * 3) { break Some(x) } } nobreak { None }
+}
+fn sum(xs : Array[Int]) -> Int {
+  for x in xs; total = 0 { continue total + x } nobreak { total }
+}

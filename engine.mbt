@@ -2,14 +2,12 @@
 using @syntax {trait IterVisitor}
 
 ///|
-priv struct Walk(Array[Listener])
+priv struct Walk(Array[(@syntax.Expr) -> Unit])
 
 ///|
 impl IterVisitor for Walk with fn visit_Expr(self, expr) {
-  for listener in self.0 {
-    if listener.on_expr is Some(visit) {
-      visit(expr)
-    }
+  for visit in self.0 {
+    visit(expr)
   }
   IterVisitor::visit_Expr(IterVisitor::base(self), expr)
 }
@@ -38,35 +36,56 @@ pub fn Config::lint(
     })
   }
   let diagnostics = []
-  let offsets = LazyOffsets::{ source, table: None }
-  let listeners = self.rules.map(entry => {
+  if self.rules.is_empty() {
+    return diagnostics
+  }
+  let offsets = LazyOffsets::{ source, table: None, }
+  let decl_visitors = []
+  let expr_visitors = []
+  for entry in self.rules {
     let (rule, severity) = entry
     fn report(loc, message, fix) {
-      diagnostics.push(Diagnostic::{ path, rule_id: Some(rule.id), severity, loc, message, fix })
+      diagnostics.push(Diagnostic::{
+        path,
+        rule_id: Some(rule.id),
+        severity,
+        loc,
+        message,
+        fix,
+      })
     }
-    (rule.create)({
+    let listener = (rule.create)({
       path,
       source,
       program,
       offsets,
       report: (loc, message) => report(loc, message, None),
       report_fix: (loc, message, replacement) => {
-        let edit = offsets.range(path, loc).map(range => {
-          let (start, end) = range
-          Edit::{ start, end, replacement }
-        })
+        let edit = offsets
+          .range(path, loc)
+          .map(range => {
+            let (start, end) = range
+            Edit::{ start, end, replacement, }
+          })
         report(loc, message, edit)
       },
     })
-  })
-  let walk = Walk(listeners)
-  for decl in program {
-    for listener in listeners {
-      if listener.on_decl is Some(visit) {
-        visit(decl)
-      }
+    if listener.on_decl is Some(visit) {
+      decl_visitors.push(visit)
     }
-    IterVisitor::visit_Impl(walk, decl)
+    if listener.on_expr is Some(visit) {
+      expr_visitors.push(visit)
+    }
+  }
+  let walk = Walk(expr_visitors)
+  let visit_exprs = !expr_visitors.is_empty()
+  for decl in program {
+    for visit in decl_visitors {
+      visit(decl)
+    }
+    if visit_exprs {
+      IterVisitor::visit_Impl(walk, decl)
+    }
   }
   diagnostics
 }

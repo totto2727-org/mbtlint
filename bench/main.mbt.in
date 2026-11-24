@@ -1,0 +1,138 @@
+///|
+fn builtin_rules() -> Array[@mbtlint.Rule] {
+  [
+    @mbtlint.no_todo(),
+    @mbtlint.no_duplicate_test_name(),
+    @mbtlint.prefer_label_pun(),
+    @mbtlint.prefer_field_pun(),
+    @mbtlint.no_mut(),
+    @mbtlint.require_public_docs(),
+    @mbtlint.prefer_labelled_parameters(),
+    @mbtlint.prefer_arrow_callback(),
+    @mbtlint.no_manual_path_join(),
+    @mbtlint.require_named_tests(),
+    @mbtlint.no_redundant_rethrow(),
+    @mbtlint.prefer_collection_map(),
+    @mbtlint.prefer_collection_filter(),
+    @mbtlint.prefer_collection_transfer(),
+    @mbtlint.prefer_collection_any(),
+    @mbtlint.prefer_collection_all(),
+    @mbtlint.prefer_collection_find(),
+    @mbtlint.prefer_collection_fold(),
+    @mbtlint.no_panic(),
+    @mbtlint.no_unsafe_unwrap(),
+    @mbtlint.no_try_bang(),
+    @mbtlint.no_unsafe_operations(),
+    @mbtlint.simplify_bool_if(),
+    @mbtlint.simplify_bool_match(),
+    @mbtlint.redundant_bool_pattern(),
+    @mbtlint.constant_condition(),
+    @mbtlint.redundant_bool_operand(),
+    @mbtlint.no_self_assignment(),
+    @mbtlint.catch_hides_failure(),
+    @mbtlint.safe_name_is_safe(),
+    @mbtlint.pure_name_is_pure(),
+  ]
+}
+
+///|
+fn all_rules() -> @mbtlint.Config {
+  builtin_rules().fold(init=@mbtlint.Config(), (config, rule) => {
+    config.with_rule(rule, severity=Warning)
+  })
+}
+
+///|
+fn benchmark_config(cohort : String) -> @mbtlint.Config raise {
+  let base = @mbtlint.Config()
+  match cohort {
+    "parse-only" => base
+    "decl-only" =>
+      base
+      .with_rule(@mbtlint.no_duplicate_test_name())
+      .with_rule(@mbtlint.require_public_docs())
+      .with_rule(@mbtlint.prefer_labelled_parameters())
+      .with_rule(@mbtlint.require_named_tests())
+    "recommended" => @mbtlint.Config::recommended()
+    "collections" => base.with_collections()
+    "all" => all_rules()
+    _ => {
+      for rule in builtin_rules() {
+        if rule.id == cohort {
+          return base.with_rule(rule)
+        }
+      }
+      fail("Unknown benchmark cohort: \{cohort}")
+    }
+  }
+}
+
+///|
+fn emit_finding(d : @mbtlint.Diagnostic) -> Unit {
+  let end = d.loc.end
+  println("\{d} (ends at \{end.lnum}:\{end.column()})")
+  if d.fix is Some(edit) {
+    println("  edit \{edit.start}:\{edit.end} \{edit.replacement.escape()}")
+  }
+}
+
+///|
+fn run_core(
+  cohort : String,
+  rounds : Int32,
+  paths : ArrayView[String],
+) -> Unit raise {
+  let config = benchmark_config(cohort)
+  guard rounds > 0 && !paths.is_empty() else {
+    fail("Expected a positive repeat count and at least one source path")
+  }
+  let inputs = paths.map(path => (path, @fs.read_file_to_string(path)))
+  let mut total = 0
+  for round in 0..<rounds {
+    for input in inputs {
+      let (path, source) = input
+      let findings = config.lint(path~, source~)
+      total += findings.length()
+      for finding in findings {
+        if finding.rule_id is None {
+          fail("Unparseable benchmark input: \{finding}")
+        }
+        if round == 0 {
+          emit_finding(finding)
+        }
+      }
+    }
+  }
+  if cohort != "parse-only" && total == 0 {
+    fail("No findings for benchmark cohort \{cohort}")
+  }
+  println("\{paths.length() * rounds} file passes, \{total} findings")
+}
+
+///|
+async fn main {
+  let args = @env.args()
+  try {
+    match args[:] {
+      [_, "list"] =>
+        for rule in builtin_rules() {
+          println(rule.id)
+        }
+      [_, "core", cohort, rounds, .. paths] =>
+        run_core(cohort, @string.parse_int(rounds[:], radix=10), paths)
+      [_, "tool", .. options] => {
+        let app = @mbtlint.engine(all_rules(), emit=emit_finding)
+        app.run(argv=Some(options.to_owned()))
+      }
+      _ =>
+        fail(
+          "Expected list, core COHORT ROUNDS FILES..., or tool FLAGS FILES...",
+        )
+    }
+  } catch {
+    error => {
+      @debug.debug(error)
+      @sys.exit(1)
+    }
+  }
+}
