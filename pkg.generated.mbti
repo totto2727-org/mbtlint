@@ -1,0 +1,69 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "totto2727/mbtlint"
+
+import {
+  "moonbitlang/core/list",
+  "moonbitlang/lexer/basic",
+  "moonbitlang/parser/syntax",
+  "totto2727/admiral",
+}
+
+// Values
+pub fn engine(Config, emit? : (Diagnostic) -> Unit) -> @admiral.CliApp
+
+pub fn no_duplicate_test_name() -> Rule
+
+pub fn no_todo() -> Rule
+
+// Errors
+pub(all) suberror LintFailed {
+  LintFailed(Int32)
+}
+
+// Types and methods
+pub struct Config {
+  // private fields
+}
+pub fn Config::Config() -> Self
+pub fn Config::lint(Self, path~ : String, source~ : String) -> Array[Diagnostic]
+pub fn Config::recommended() -> Self
+pub fn Config::with_rule(Self, Rule, severity? : Severity) -> Self
+pub fn Config::without_rule(Self, String) -> Self
+
+pub struct Context {
+  path : String
+  source : String
+  program : @list.List[@syntax.Impl]
+  report : (@basic.Location, String) -> Unit
+}
+
+pub struct Diagnostic {
+  path : String
+  rule_id : String?
+  severity : Severity
+  loc : @basic.Location
+  message : String
+}
+pub impl Show for Diagnostic
+
+pub struct Listener {
+  on_decl : ((@syntax.Impl) -> Unit)?
+  on_expr : ((@syntax.Expr) -> Unit)?
+}
+pub fn Listener::Listener(on_decl? : (@syntax.Impl) -> Unit, on_expr? : (@syntax.Expr) -> Unit) -> Self
+
+pub struct Rule {
+  id : String
+  create : (Context) -> Listener
+}
+pub fn Rule::Rule(String, (Context) -> Listener) -> Self
+
+#derive(Eq)
+pub(all) enum Severity {
+  Warning
+  Error
+}
+
+// Type aliases
+
+// Traits

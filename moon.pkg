@@ -1,0 +1,10 @@
+supported_targets = "wasm+js+native"
+
+import {
+  "moonbitlang/parser",
+  "moonbitlang/parser/syntax",
+  "moonbitlang/lexer/basic",
+  "moonbitlang/core/list",
+  "moonbitlang/x/fs",
+  "totto2727/admiral",
+}
