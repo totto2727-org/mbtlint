@@ -34,23 +34,28 @@ pub fn Config::lint(
       severity: Error,
       loc: e.loc,
       message: e.msg,
+      fix: None,
     })
   }
   let diagnostics = []
+  let offsets = LazyOffsets::{ source, table: None }
   let listeners = self.rules.map(entry => {
     let (rule, severity) = entry
+    fn report(loc, message, fix) {
+      diagnostics.push(Diagnostic::{ path, rule_id: Some(rule.id), severity, loc, message, fix })
+    }
     (rule.create)({
       path,
       source,
       program,
-      report: (loc, message) => {
-        diagnostics.push({
-          path,
-          rule_id: Some(rule.id),
-          severity,
-          loc,
-          message,
+      offsets,
+      report: (loc, message) => report(loc, message, None),
+      report_fix: (loc, message, replacement) => {
+        let edit = offsets.range(path, loc).map(range => {
+          let (start, end) = range
+          Edit::{ start, end, replacement }
         })
+        report(loc, message, edit)
       },
     })
   })

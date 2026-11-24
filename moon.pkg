@@ -1,6 +1,11 @@
 supported_targets = "wasm+js+native"
 
 import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/path",
+  "moonbitlang/x/crypto",
   "moonbitlang/parser",
   "moonbitlang/parser/syntax",
   "moonbitlang/lexer/basic",

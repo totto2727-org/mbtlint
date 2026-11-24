@@ -12,6 +12,7 @@ pub struct Diagnostic {
   severity : Severity
   loc : @basic.Location
   message : String
+  fix : Edit?
 }
 
 ///|
@@ -33,6 +34,15 @@ pub struct Context {
   source : String
   program : @list.List[@syntax.Impl]
   report : (@basic.Location, String) -> Unit
+  report_fix : (@basic.Location, String, String) -> Unit
+  priv offsets : LazyOffsets
+}
+
+///|
+/// Return the original text at an official parser location in this file.
+pub fn Context::text(self : Context, loc : @basic.Location) -> String? {
+  guard self.offsets.range(self.path, loc) is Some((start, end)) else { return None }
+  Some(self.source[start:end].to_owned())
 }
 
 ///|
@@ -52,12 +62,18 @@ pub fn Listener::Listener(
 ///|
 pub struct Rule {
   id : String
+  revision : String?
   create : (Context) -> Listener
 }
 
 ///|
-pub fn Rule::Rule(id : String, create : (Context) -> Listener) -> Rule {
-  { id, create, }
+pub fn Rule::Rule(id : String, create : (Context) -> Listener, revision? : String) -> Rule {
+  { id, revision, create, }
+}
+
+///|
+fn builtin_rule(id : String, create : (Context) -> Listener) -> Rule {
+  Rule(id, create, revision="mbtlint/0.1.0:1")
 }
 
 ///|

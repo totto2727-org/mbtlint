@@ -1,6 +1,6 @@
 ///|
 pub fn no_todo() -> Rule {
-  Rule("no-todo", ctx => {
+  builtin_rule("no-todo", ctx => {
     Listener(on_expr=expr => {
       if expr is Hole(kind=Todo, loc~) {
         (ctx.report)(loc, "Replace the placeholder with an implementation.")
@@ -11,7 +11,7 @@ pub fn no_todo() -> Rule {
 
 ///|
 pub fn no_duplicate_test_name() -> Rule {
-  Rule("no-duplicate-test-name", ctx => {
+  builtin_rule("no-duplicate-test-name", ctx => {
     let seen : Set[String] = Set([])
     Listener(on_decl=decl => {
       if decl is TopTest(name=Some((name, loc)), ..) {
@@ -27,5 +27,13 @@ pub fn no_duplicate_test_name() -> Rule {
 
 ///|
 pub fn Config::recommended() -> Config {
-  Config().with_rule(no_todo()).with_rule(no_duplicate_test_name())
+  Config()
+  .with_safety()
+  .with_rule(no_mut())
+  .with_rule(no_todo())
+  .with_rule(no_duplicate_test_name())
+  .with_rule(no_self_assignment())
+  .with_rule(prefer_field_pun(), severity=Warning)
+  .with_rule(prefer_label_pun(), severity=Warning)
+  .with_collections()
 }
