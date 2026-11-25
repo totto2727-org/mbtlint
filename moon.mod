@@ -4,7 +4,13 @@ version = "0.1.0"
 
 description = "Programmable MoonBit AST lint rules for lint.mbtx"
 
-readme = "README.md"
+readme = "README.mbt.md"
+
+repository = "https://github.com/totto2727-org/mbtlint"
+
+license = "MIT"
+
+keywords = [ "moonbit", "lint", "static-analysis" ]
 
 preferred_target = "wasm"
 

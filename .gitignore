@@ -1,4 +1,10 @@
 _build/
+.moon/
 .mooncakes/
-tmp/
+.direnv/
+.omo/
+trace.json
+.DS_Store
+/result
+/tmp/
 __pycache__/

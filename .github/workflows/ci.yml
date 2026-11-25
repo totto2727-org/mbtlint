@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: totto2727-org/monorepo/.github/actions/setup-nix@main
+        with:
+          dev-shell: ci
+      - uses: totto2727-org/monorepo/.github/actions/setup-moonbit@main
+        with:
+          dev-shell: ci
+      - uses: totto2727-org/monorepo/.github/actions/check-moonbit@main
+        with:
+          dev-shell: ci
+      - name: Check the standalone script and inspect the package
+        run: |
+          nix develop .#ci --command bash -e -c '
+            moon fmt --check . lint.mbtx
+            moon package --list
+            python3 -B -m unittest discover -s test -v
+          '
