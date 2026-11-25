@@ -26,18 +26,15 @@
             inherit system;
             overlays = [ moonbit-overlay.overlays.default ];
           };
-          shell = pkgs.mkShell {
-            packages = [
-              pkgs.moonbit-bin."v0.10.22+124d61d05+738607b"
-              pkgs.jq
-              pkgs.perl
-              pkgs.python3
-            ];
-          };
+          packages = [
+            pkgs.moonbit-bin."v0.10.22+124d61d05+738607b"
+            pkgs.jq
+            pkgs.perl
+          ];
         in
         {
-          default = shell;
-          ci = shell;
+          default = pkgs.mkShell { packages = packages ++ [ pkgs.python3 ]; };
+          ci = pkgs.mkShell { inherit packages; };
         }
       );
     };
