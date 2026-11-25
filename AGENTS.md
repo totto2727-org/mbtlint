@@ -4,11 +4,12 @@
 
 | Path | Purpose |
 | --- | --- |
-| `moon.mod`, `moon.pkg` | MoonBit library metadata and root package configuration |
-| `engine.mbt`, `rule.mbt`, `fix.mbt` | Parser-backed rule traversal and in-memory lint and fix operations |
-| `admiral.mbt`, `cache.mbt` | Script integration, argument handling, and cache I/O |
+| `moon.mod` | Module metadata for the three importable packages |
+| `core/` | Config, listener and rule types, parser traversal, fixes, cache, and the Admiral adapter |
+| `rule/` | Built-in rule constructors, one file per rule ID |
+| `preset/` | Recommended defaults and optional rule packs, one file per pack |
 | `lint.mbtx` | Example consumer configuration and standalone entry point, not an installed executable |
-| `*_test.mbt`, `test/` | Library tests, standalone script fixture, and cache measurements |
+| `<package>/*_test.mbt`, `test/` | Library tests, standalone script fixture, and cache measurements |
 | `README.mbt.md`, `docs/` | Consumer documentation and rule reference |
 | `flake.nix`, `.github/workflows/ci.yml` | Pinned development shell and validation |
 
@@ -21,18 +22,21 @@ Keep `README.md` as a relative symlink to `README.mbt.md`.
 | Command | Purpose |
 | --- | --- |
 | `moon update` | Update the local Mooncakes registry index |
-| `moon fmt --check . lint.mbtx` | Check formatting of the library and standalone script |
+| `moon fmt --check` | Check library formatting |
+| `moon fmt --check README.mbt.md lint.mbtx test/test_script.mbtx` | Check the README and standalone scripts |
 | `moon check --deny-warn` | Type-check the library and fail on warnings |
 | `moon build` | Build the library |
 | `moon test` | Run the parser-backed library tests |
-| `python3 -B -m unittest discover -s test -v` | Exercise `moon run lint.mbtx` through an isolated registry fixture |
-| `moon info` | Regenerate the tracked package interface after public API changes |
+| `moon run --target native test/test_script.mbtx` | Exercise `moon run lint.mbtx` through an isolated registry fixture |
+| `moon info` | Regenerate the tracked package interfaces after public API changes |
 | `moon package --list` | Review which files the package contains without publishing |
 
 ## Package boundaries
 
-Keep the lint and fix engine in memory without filesystem or process access.
-Put argument handling and optional cache I/O at the Admiral boundary.
+Keep imports in this direction: `preset` depends on `rule` and `core`, and `rule` depends on `core`.
+Do not add a root package that re-exports these packages.
+Keep `core` lint and fix operations in memory without filesystem or process access.
+Put argument handling and optional cache I/O at the Admiral boundary inside `core`.
 When changing edits or cache behavior, preserve the invariants documented in [the README](README.mbt.md#lint-fix-and-cache) and [the cache guide](docs/cache.md).
 Use the isolated script fixture for local registry resolution rather than publishing the package or changing the normal registry entry for `mbtlint`.
 

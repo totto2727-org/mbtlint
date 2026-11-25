@@ -2,7 +2,15 @@
 
 `lint.mbtx` is the configuration and the entry point for this MoonBit source linter.
 There is no `mbtlint` executable, config loader, JavaScript runtime dependency, or model call.
-[`engine(config)`](admiral.mbt) returns an Admiral `CliApp`.
+`@core.engine(config)` returns an Admiral `CliApp`.
+
+| Import | What it provides |
+| --- | --- |
+| [`totto2727/mbtlint/core`](core/) | Configuration, rule authoring, the lint and fix engine, and the Admiral adapter |
+| [`totto2727/mbtlint/rule`](rule/) | Individual built-in rule constructors, such as `@rule.no_mut()`, with one source file per rule ID |
+| [`totto2727/mbtlint/preset`](preset/) | Recommended defaults and optional packs, with one source file per pack |
+
+In a standalone script, put the module version before the package suffix, as in `"totto2727/mbtlint@0.1.0/core"`.
 
 ## Run the example
 
@@ -14,7 +22,7 @@ For local development, prepare an isolated registry fixture with `sh`, `jq`, and
 ```sh
 script_home=$(sh test/prepare-script-home.sh)
 MOON_HOME="$script_home" moon run lint.mbtx -- --help
-MOON_HOME="$script_home" moon run lint.mbtx -- rule.mbt recommended.mbt
+MOON_HOME="$script_home" moon run lint.mbtx -- core/engine.mbt rule/no_mut.mbt
 ```
 
 The preparation step packages the checkout and stages only its resolved dependencies under `tmp/`.
@@ -31,8 +39,8 @@ The core of a minimal script is:
 ```moonbit nocheck
 ///|
 async fn main {
-  let config = @mbtlint.Config::recommended()
-  let app = @mbtlint.engine(config)
+  let config = @preset.recommended()
+  let app = @core.engine(config)
   app.run()
 }
 ```
@@ -45,18 +53,19 @@ The example exits with `0` for clean or warning-only input, `1` for lint errors,
 | --- | --- |
 | Recommended errors | [Panic, unsafe unwraps, unchecked operations, and `try!`](docs/safety.md), explicit `mut`, `...` placeholders, duplicate named tests in a file, and variable self-assignment. |
 | Recommended warnings | [Recognizable map, filter, transfer, search, and fold loops](docs/collections.md), explicit same-name record fields and labelled arguments. Other `for` loops are allowed. |
-| `with_conventions()` | [MoonBit project conventions](docs/conventions.md), including public documentation, labelled parameters and error propagation. |
-| `with_simplifications()` | [Boolean and control-flow simplifications](docs/simplifications.md). |
-| `with_static_contracts()` | [Syntax-only subsets of Jev rules](docs/static-contracts.md). These do not claim to understand natural-language intent. |
+| `@preset.with_conventions(config)` | [MoonBit project conventions](docs/conventions.md), including public documentation, labelled parameters and error propagation. |
+| `@preset.with_simplifications(config)` | [Boolean and control-flow simplifications](docs/simplifications.md). |
+| `@preset.with_static_contracts(config)` | [Syntax-only subsets of Jev rules](docs/static-contracts.md). These do not claim to understand natural-language intent. |
 
 `no-mut` reports `let mut`, mutable record fields, and mutable enum constructor fields.
 It does not infer immutability through aliases or prohibit all calls to mutating methods.
-Start with `Config()` for an empty rule list, or use `without_rule("no-mut")` to remove a rule from a preset.
+Start with `@core.Config()` for an empty rule list, or use `without_rule("no-mut")` to remove a rule from a preset.
+Use `@core.Config().with_rule(@rule.no_mut(), severity=Error)` to enable just the mutation check.
 `with_rule(rule, severity=Warning)` replaces the previous registration of that ID without mutating the original configuration.
 
 ## Write a native rule
 
-A rule creates a fresh listener per file.
+Create a rule with `@core.Rule` and return a fresh `@core.Listener` for each file.
 `on_decl` sees top-level declarations before their children, and `on_expr` sees nested expressions in preorder.
 Both receive official [`moonbitlang/parser/syntax`](https://github.com/moonbitlang/parser) nodes, not JSON or token approximations.
 `ctx.program`, `ctx.source`, and `ctx.text(loc)` are available for checks that need the full AST or exact source spelling.
@@ -81,8 +90,8 @@ Only supply a revision when the rule is deterministic, and change it when the ca
 
 ## Verify the library
 
-Run `moon test` for parser-backed tests and `moon fmt --check . lint.mbtx` for formatting.
-Run `python3 -B -m unittest discover -s test -v` to exercise the actual `moon run lint.mbtx` entry point in a separate project.
+Run `moon test` for parser-backed tests and `moon fmt --check` for library formatting.
+Run `moon run --target native test/test_script.mbtx` from the repository root to exercise the actual `moon run lint.mbtx` entry point in a separate project.
 Run `python3 -B test/measure_cache.py` to compare disabled, empty, and populated caches on identical input and diagnostics.
 See [performance](docs/performance.md) for the benchmark commands and measurement scope.
 See [AGENTS.md](AGENTS.md) for development and CI commands.
