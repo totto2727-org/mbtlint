@@ -1,6 +1,6 @@
 # Safety rules
 
-Enable all four rules with `config.with_safety()`.
+Enable all four rules with `@preset.with_safety(config)`.
 Each rule defaults to error severity.
 To opt in to a single rule or set its severity, pass its constructor to `config.with_rule(...)`.
 
@@ -10,7 +10,7 @@ These rules inspect syntax, not types, imports, control flow, or runtime behavio
 
 ## `no-panic`
 
-Constructor: `no_panic()`.
+Constructor: `@rule.no_panic()`.
 
 Reports explicit `abort` and `panic` calls, including `@builtin` and `@prelude` spellings, legacy `@abort.abort`, and a call such as `"invalid input" |> abort`.
 Return or raise a recoverable error when callers can handle the failure.
@@ -19,7 +19,7 @@ It does not resolve local shadowing, renamed imports, or calls through function 
 
 ## `no-unsafe-unwrap`
 
-Constructor: `no_unsafe_unwrap()`.
+Constructor: `@rule.no_unsafe_unwrap()`.
 
 Reports unchecked `Option` or `Result` unwraps such as `value.unwrap()`, `Result::unwrap_err(result)`, and `value |> Option::unwrap`.
 Use pattern matching or an explicit fallback such as `value.unwrap_or(default_value)`.
@@ -28,7 +28,7 @@ Explicit type calls are checked only for the known `Option` and `Result` owners.
 
 ## `no-try-bang`
 
-Constructor: `no_try_bang()`.
+Constructor: `@rule.no_try_bang()`.
 
 Reports `try! read_file(path)`, which converts a raised error into a panic.
 Handle the failure with `try ... catch`, or let a caller handle a propagated error.
@@ -36,7 +36,7 @@ The rule checks the operator even if the expression cannot raise at runtime.
 
 ## `no-unsafe-operations`
 
-Constructor: `no_unsafe_operations()`.
+Constructor: `@rule.no_unsafe_operations()`.
 
 Reports calls to known unchecked core methods such as `items.unsafe_get(index)`, `@builtin.Array::unsafe_set(items, index, value)`, or `list |> @list.List::unsafe_tail`.
 The rule covers selected unchecked indexing, writes, copying, views, range comparisons, list access, and regex construction methods from the core library.

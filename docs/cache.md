@@ -1,13 +1,13 @@
 # Lint result cache
 
-Admiral apps returned by `@mbtlint.engine(config)` cache diagnostics on disk by default.
+Admiral apps returned by `@core.engine(config)` cache diagnostics on disk by default.
 Run `moon run lint.mbtx -- --no-cache file.mbt` to lint without reading or writing the cache.
 `--fix` always bypasses the cache.
 Calls to `Config::lint` and `Config::fix` do not use the disk cache.
 
 The default directory uses the first absolute path configured through `XDG_CACHE_HOME`, `LOCALAPPDATA`, or `HOME`.
 The resulting directories are `$XDG_CACHE_HOME/mbtlint`, `$LOCALAPPDATA/mbtlint`, and `$HOME/.cache/mbtlint`, respectively.
-To override the location, build the app with `@mbtlint.engine(config, cache_dir="path/to/cache")`.
+To override the location, build the app with `@core.engine(config, cache_dir="path/to/cache")`.
 Use a directory controlled by the current user, not a directory writable by other users or untrusted projects.
 Missing, unreadable, or corrupt cache entries never prevent linting.
 You can remove the cache directory at any time.

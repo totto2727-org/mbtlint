@@ -1,14 +1,14 @@
 # Static contracts
 
-Enable these checks with `@mbtlint.Config().with_static_contracts()`.
+Enable these checks with `@preset.with_static_contracts(@core.Config())`.
 The pack is opt-in and registers all three rules at error severity without automatic fixes.
 Use `with_rule` with the corresponding constructor to enable rules individually or override their severity.
 
 | Rule ID | Constructor | What it reports |
 | --- | --- | --- |
-| `catch-hides-failure` | `catch_hides_failure()` | An unguarded `_` catch arm that substitutes a string, integer, empty array, or unit literal, optionally with `return`. The surrounding function must explicitly return `String`, `Int`, `Int64`, `UInt`, `UInt64`, `Unit`, or `Array[...]`. |
-| `safe-name-is-safe` | `safe_name_is_safe()` | A direct call to core `abort` or `panic` in a function named `safe`, `try`, `safe_*`, `try_*`, or ending in `_or_default`, `_or_none`, or `_or_else`. |
-| `pure-name-is-pure` | `pure_name_is_pure()` | A direct call to core `println`, or a field assignment rooted at a named parameter, in a function named `compute`, `calculate`, `derive`, `format`, `to`, `parse`, or starting with one of those words followed by `_`. |
+| `catch-hides-failure` | `@rule.catch_hides_failure()` | An unguarded `_` catch arm that substitutes a string, integer, empty array, or unit literal, optionally with `return`. The surrounding function must explicitly return `String`, `Int`, `Int64`, `UInt`, `UInt64`, `Unit`, or `Array[...]`. |
+| `safe-name-is-safe` | `@rule.safe_name_is_safe()` | A direct call to core `abort` or `panic` in a function named `safe`, `try`, `safe_*`, `try_*`, or ending in `_or_default`, `_or_none`, or `_or_else`. |
+| `pure-name-is-pure` | `@rule.pure_name_is_pure()` | A direct call to core `println`, or a field assignment rooted at a named parameter, in a function named `compute`, `calculate`, `derive`, `format`, `to`, `parse`, or starting with one of those words followed by `_`. |
 
 For methods declared as `Type::method`, the rules match the method name, not the type name.
 The catch rule skips the names `safe`, `try`, `maybe`, their underscore prefixes, and names ending in `_or_null`, `_or_default`, `_or_else`, `_or_none`, or `_or`.

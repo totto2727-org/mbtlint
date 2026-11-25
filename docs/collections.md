@@ -1,7 +1,7 @@
 # Collection rules
 
-`Config().with_collections()` enables these rules as warnings.
-Each rule is also available as an individual constructor, such as `prefer_collection_map()`.
+`@preset.with_collections(@core.Config())` enables these rules as warnings.
+Each rule is also available as an individual constructor, such as `@rule.prefer_collection_map()`.
 The rules report at the loop and do not change source code.
 
 ## Rule reference

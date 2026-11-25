@@ -20,8 +20,10 @@ def main():
         with tempfile.TemporaryDirectory(dir=ROOT / "tmp") as temp:
             project = Path(temp)
             shutil.copyfile(ROOT / "lint.mbtx", project / "lint.mbtx")
-            files = sorted(p.name for p in ROOT.glob("*.mbt"))
+            files = sorted(str(p.relative_to(ROOT)) for pkg in ("core", "rule", "preset")
+                           for p in (ROOT / pkg).glob("*.mbt"))
             for name in files:
+                (project / name).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT / name, project / name)
             times = {kind: [] for kind in ["uncached", "cold", "warm"]}
             reference = None

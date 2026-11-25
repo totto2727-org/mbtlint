@@ -10,22 +10,20 @@ Those are control-flow counts for the matching examples, not timings.
 
 Use the same MoonBit toolchain on both sides.
 The runner stages a private copy of each module, builds with `--target native --release`, and keeps the benchmark executable out of the published module.
-Both modules must expose the same rule constructors and support the same `engine` API.
-To isolate this change, use the same source tree on both sides except for the two implementation files:
+Both modules must expose the same `core`, `rule`, and `preset` packages.
+For example, compare the committed version with an uncommitted local optimization from the repository root:
 
 ```bash
 mkdir -p tmp
 base=$(mktemp -d "$PWD/tmp/mbtlint-perf-base.XXXXXX")
-cp ./*.mbt moon.mod moon.pkg lint.mbtx "$base/"
+git archive HEAD | tar -x -C "$base"
 if [ -d .mooncakes ]; then ln -s "$PWD/.mooncakes" "$base/.mooncakes"; fi
-git show df064dea:engine.mbt > "$base/engine.mbt"
-git show df064dea:collections.mbt > "$base/collections.mbt"
 REPS=5 ROUNDS=16 TOOL_COPIES=16 \
   bash bench/compare.sh "$base" "$PWD" "$PWD/tmp/mbtlint-perf-results"
 ```
 
 The results directory must not already exist.
-The inputs are the baseline's root `.mbt` files, `lint.mbtx`, and a fixture that triggers each builtin at least once.
+The inputs are the baseline's `.mbt` files in the three packages, `lint.mbtx`, and a fixture that triggers each builtin at least once.
 `core` cohorts read the sources once per sample and then call `Config::lint` repeatedly, including parsing on every pass.
 They include parse-only, declaration-only, recommended, collection, all-rule, and each of the 31 builtin configurations in isolation.
 `tool` launches the actual Admiral app with all builtins set to warnings and `--no-cache`, including argument handling, file reads, UTF-8 decoding, lint and diagnostic rendering.
@@ -39,6 +37,7 @@ It also checks that the tool's output equals one full diagnostic listing for eve
 ## Observed results
 
 **No measurable end-to-end speedup on this workload.**
+These historical results predate the package split and used the same rules and a flat source layout.
 The run used MoonBit v0.10.22, an Apple M1 Pro on macOS arm64, and five alternating samples per side across 37 cohorts.
 The corpus contained 24 files and 99,764 bytes, with 384 file passes per sample.
 All 370 invocations succeeded and produced matching output across both sides and all replicates.

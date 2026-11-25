@@ -7,7 +7,9 @@ import {
   "moonbitlang/core/string",
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",
-  "totto2727/mbtlint",
+  "totto2727/mbtlint/core",
+  "totto2727/mbtlint/rule",
+  "totto2727/mbtlint/preset",
 }
 
 options(

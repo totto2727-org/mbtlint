@@ -1,13 +1,13 @@
 # MoonBit conventions
 
-Use `Config().with_conventions()` to enable the six rules on this page.
+Use `@preset.with_conventions(@core.Config())` to enable the six rules on this page.
 Each rule has a public constructor, so you can also enable it with `with_rule` or remove it from the pack with `without_rule`.
 The rules report diagnostics and do not rewrite code.
 They inspect the MoonBit parser's syntax tree without type checking or resolving package aliases.
 
 ## `require-public-docs`
 
-Constructor: `require_public_docs()`.
+Constructor: `@rule.require_public_docs()`.
 
 Add a nonblank `///` comment to a public function, method, type, trait, or value declaration.
 A standalone `///|` separator does not count as documentation.
@@ -26,7 +26,7 @@ See [historical MoonBit style][style].
 
 ## `prefer-labelled-parameters`
 
-Constructor: `prefer_labelled_parameters()`.
+Constructor: `@rule.prefer_labelled_parameters()`.
 
 Label every caller-supplied parameter when a function takes four or more.
 For a method, keep the receiver positional and exclude it from the count.
@@ -46,7 +46,7 @@ See [historical MoonBit style][style] and [constructor guidance][constructors].
 
 ## `prefer-arrow-callback`
 
-Constructor: `prefer_arrow_callback()`.
+Constructor: `@rule.prefer_arrow_callback()`.
 
 Prefer `items.map(item => item.name)` to `items.map(fn(item) { item.name })`.
 The rule checks function and method call arguments that are direct `fn` expressions with no explicit parameter types, return type, or effects.
@@ -55,7 +55,7 @@ See [historical MoonBit style][style].
 
 ## `no-manual-path-join`
 
-Constructor: `no_manual_path_join()`.
+Constructor: `@rule.no_manual_path_join()`.
 
 Use a path API to join components before passing the resulting path to a filesystem operation.
 For example, replace `@fs.read_file_to_string(parent + "/" + child)` with `@fs.read_file_to_string(join_path(parent, child))`, where `join_path` is your project's path API.
@@ -67,7 +67,7 @@ See [historical path form invariants][paths] for choosing a typed internal path 
 
 ## `require-named-tests`
 
-Constructor: `require_named_tests()`.
+Constructor: `@rule.require_named_tests()`.
 
 Give each test a nonblank name, such as `test "Widget create - with distinct inputs" { ... }` instead of `test { ... }`.
 The rule checks for missing names, empty names, and names containing only unescaped whitespace.
@@ -76,7 +76,7 @@ See [historical test naming guidance][names] for scenario descriptions, case IDs
 
 ## `no-redundant-rethrow`
 
-Constructor: `no_redundant_rethrow()`.
+Constructor: `@rule.no_redundant_rethrow()`.
 
 Instead of `try { load() } catch { err => raise err }`, call `load()` directly in a function whose signature permits its error to propagate.
 The rule checks a single unguarded catch arm that raises its simple bound error unchanged.

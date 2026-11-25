@@ -1,60 +1,60 @@
 ///|
-fn builtin_rules() -> Array[@mbtlint.Rule] {
+fn builtin_rules() -> Array[@core.Rule] {
   [
-    @mbtlint.no_todo(),
-    @mbtlint.no_duplicate_test_name(),
-    @mbtlint.prefer_label_pun(),
-    @mbtlint.prefer_field_pun(),
-    @mbtlint.no_mut(),
-    @mbtlint.require_public_docs(),
-    @mbtlint.prefer_labelled_parameters(),
-    @mbtlint.prefer_arrow_callback(),
-    @mbtlint.no_manual_path_join(),
-    @mbtlint.require_named_tests(),
-    @mbtlint.no_redundant_rethrow(),
-    @mbtlint.prefer_collection_map(),
-    @mbtlint.prefer_collection_filter(),
-    @mbtlint.prefer_collection_transfer(),
-    @mbtlint.prefer_collection_any(),
-    @mbtlint.prefer_collection_all(),
-    @mbtlint.prefer_collection_find(),
-    @mbtlint.prefer_collection_fold(),
-    @mbtlint.no_panic(),
-    @mbtlint.no_unsafe_unwrap(),
-    @mbtlint.no_try_bang(),
-    @mbtlint.no_unsafe_operations(),
-    @mbtlint.simplify_bool_if(),
-    @mbtlint.simplify_bool_match(),
-    @mbtlint.redundant_bool_pattern(),
-    @mbtlint.constant_condition(),
-    @mbtlint.redundant_bool_operand(),
-    @mbtlint.no_self_assignment(),
-    @mbtlint.catch_hides_failure(),
-    @mbtlint.safe_name_is_safe(),
-    @mbtlint.pure_name_is_pure(),
+    @rule.no_todo(),
+    @rule.no_duplicate_test_name(),
+    @rule.prefer_label_pun(),
+    @rule.prefer_field_pun(),
+    @rule.no_mut(),
+    @rule.require_public_docs(),
+    @rule.prefer_labelled_parameters(),
+    @rule.prefer_arrow_callback(),
+    @rule.no_manual_path_join(),
+    @rule.require_named_tests(),
+    @rule.no_redundant_rethrow(),
+    @rule.prefer_collection_map(),
+    @rule.prefer_collection_filter(),
+    @rule.prefer_collection_transfer(),
+    @rule.prefer_collection_any(),
+    @rule.prefer_collection_all(),
+    @rule.prefer_collection_find(),
+    @rule.prefer_collection_fold(),
+    @rule.no_panic(),
+    @rule.no_unsafe_unwrap(),
+    @rule.no_try_bang(),
+    @rule.no_unsafe_operations(),
+    @rule.simplify_bool_if(),
+    @rule.simplify_bool_match(),
+    @rule.redundant_bool_pattern(),
+    @rule.constant_condition(),
+    @rule.redundant_bool_operand(),
+    @rule.no_self_assignment(),
+    @rule.catch_hides_failure(),
+    @rule.safe_name_is_safe(),
+    @rule.pure_name_is_pure(),
   ]
 }
 
 ///|
-fn all_rules() -> @mbtlint.Config {
-  builtin_rules().fold(init=@mbtlint.Config(), (config, rule) => {
+fn all_rules() -> @core.Config {
+  builtin_rules().fold(init=@core.Config(), (config, rule) => {
     config.with_rule(rule, severity=Warning)
   })
 }
 
 ///|
-fn benchmark_config(cohort : String) -> @mbtlint.Config raise {
-  let base = @mbtlint.Config()
+fn benchmark_config(cohort : String) -> @core.Config raise {
+  let base = @core.Config()
   match cohort {
     "parse-only" => base
     "decl-only" =>
       base
-      .with_rule(@mbtlint.no_duplicate_test_name())
-      .with_rule(@mbtlint.require_public_docs())
-      .with_rule(@mbtlint.prefer_labelled_parameters())
-      .with_rule(@mbtlint.require_named_tests())
-    "recommended" => @mbtlint.Config::recommended()
-    "collections" => base.with_collections()
+      .with_rule(@rule.no_duplicate_test_name())
+      .with_rule(@rule.require_public_docs())
+      .with_rule(@rule.prefer_labelled_parameters())
+      .with_rule(@rule.require_named_tests())
+    "recommended" => @preset.recommended()
+    "collections" => @preset.with_collections(base)
     "all" => all_rules()
     _ => {
       for rule in builtin_rules() {
@@ -68,7 +68,7 @@ fn benchmark_config(cohort : String) -> @mbtlint.Config raise {
 }
 
 ///|
-fn emit_finding(d : @mbtlint.Diagnostic) -> Unit {
+fn emit_finding(d : @core.Diagnostic) -> Unit {
   let end = d.loc.end
   println("\{d} (ends at \{end.lnum}:\{end.column()})")
   if d.fix is Some(edit) {
@@ -121,7 +121,7 @@ async fn main {
       [_, "core", cohort, rounds, .. paths] =>
         run_core(cohort, @string.parse_int(rounds[:], radix=10), paths)
       [_, "tool", .. options] => {
-        let app = @mbtlint.engine(all_rules(), emit=emit_finding)
+        let app = @core.engine(all_rules(), emit=emit_finding)
         app.run(argv=Some(options.to_owned()))
       }
       _ =>

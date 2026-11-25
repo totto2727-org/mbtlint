@@ -24,7 +24,8 @@ templates=$(cd "$(dirname "$0")" && pwd)
 build_side() {
   local side=$1 project=$2 build="$results/$1-project"
   mkdir -p "$build/bench"
-  cp "$project"/*.mbt "$project/moon.mod" "$project/moon.pkg" "$build/"
+  cp "$project/moon.mod" "$build/"
+  cp -R "$project/core" "$project/rule" "$project/preset" "$build/"
   cp "$templates/moon.pkg.in" "$build/bench/moon.pkg"
   cp "$templates/main.mbt.in" "$build/bench/main.mbt"
   if [[ -d "$project/.mooncakes" ]]; then
@@ -39,10 +40,13 @@ base_exe="$results/base-project/_build/native/release/build/bench/bench.exe"
 cand_exe="$results/candidate-project/_build/native/release/build/bench/bench.exe"
 
 cd "$results"
-mkdir source
-cp "$baseline"/*.mbt "$baseline/lint.mbtx" source/
+mkdir -p source/{core,rule,preset}
+for pkg in core rule preset; do
+  cp "$baseline/$pkg"/*.mbt "source/$pkg/"
+done
+cp "$baseline/lint.mbtx" source/
 cp "$templates/fixture.mbt.txt" source/benchmark-fixture.mbt
-inputs=(source/*.mbt source/*.mbtx)
+inputs=(source/{core,rule,preset}/*.mbt source/*.mbt source/*.mbtx)
 tool_inputs=()
 for ((copy=0; copy<tool_copies; copy++)); do
   tool_inputs+=("${inputs[@]}")
