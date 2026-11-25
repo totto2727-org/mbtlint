@@ -1,0 +1,77 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "totto2727/mbtlint/rule"
+
+import {
+  "totto2727/mbtlint/core",
+}
+
+// Values
+pub fn catch_hides_failure() -> @core.Rule
+
+pub fn constant_condition() -> @core.Rule
+
+pub fn no_duplicate_test_name() -> @core.Rule
+
+pub fn no_manual_path_join() -> @core.Rule
+
+pub fn no_mut() -> @core.Rule
+
+pub fn no_panic() -> @core.Rule
+
+pub fn no_redundant_rethrow() -> @core.Rule
+
+pub fn no_self_assignment() -> @core.Rule
+
+pub fn no_todo() -> @core.Rule
+
+pub fn no_try_bang() -> @core.Rule
+
+pub fn no_unsafe_operations() -> @core.Rule
+
+pub fn no_unsafe_unwrap() -> @core.Rule
+
+pub fn prefer_arrow_callback() -> @core.Rule
+
+pub fn prefer_collection_all() -> @core.Rule
+
+pub fn prefer_collection_any() -> @core.Rule
+
+pub fn prefer_collection_filter() -> @core.Rule
+
+pub fn prefer_collection_find() -> @core.Rule
+
+pub fn prefer_collection_fold() -> @core.Rule
+
+pub fn prefer_collection_map() -> @core.Rule
+
+pub fn prefer_collection_transfer() -> @core.Rule
+
+pub fn prefer_field_pun() -> @core.Rule
+
+pub fn prefer_label_pun() -> @core.Rule
+
+pub fn prefer_labelled_parameters() -> @core.Rule
+
+pub fn pure_name_is_pure() -> @core.Rule
+
+pub fn redundant_bool_operand() -> @core.Rule
+
+pub fn redundant_bool_pattern() -> @core.Rule
+
+pub fn require_named_tests() -> @core.Rule
+
+pub fn require_public_docs() -> @core.Rule
+
+pub fn safe_name_is_safe() -> @core.Rule
+
+pub fn simplify_bool_if() -> @core.Rule
+
+pub fn simplify_bool_match() -> @core.Rule
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

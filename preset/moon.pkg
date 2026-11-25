@@ -1,0 +1,6 @@
+supported_targets = "wasm+js+native"
+
+import {
+  "totto2727/mbtlint/core",
+  "totto2727/mbtlint/rule",
+}

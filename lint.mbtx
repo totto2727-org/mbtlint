@@ -3,12 +3,13 @@ import {
   "moonbitlang/async@0.22.9",
   "moonbitlang/core/debug",
   "moonbitlang/x@0.5.7/sys",
-  "totto2727/mbtlint@0.1.0",
+  "totto2727/mbtlint@0.1.0/core",
+  "totto2727/mbtlint@0.1.0/preset",
 }
 ---
 
-fn no_println() -> @mbtlint.Rule {
-  @mbtlint.Rule("project/no-println", ctx => @mbtlint.Listener(on_expr=expr => {
+fn no_println() -> @core.Rule {
+  @core.Rule("project/no-println", ctx => @core.Listener(on_expr=expr => {
     if expr is Apply(func=Ident(id={ name: Ident(name="println"), .. }, ..), loc~, ..) {
       (ctx.report)(loc, "Use the project logger instead of println.")
     }
@@ -16,10 +17,10 @@ fn no_println() -> @mbtlint.Rule {
 }
 
 async fn main {
-  let config = @mbtlint.Config::recommended().with_rule(no_println(), severity=Warning)
-  let app = @mbtlint.engine(config)
+  let config = @preset.recommended().with_rule(no_println(), severity=Warning)
+  let app = @core.engine(config)
   try app.run() catch {
-    @mbtlint.LintFailed(_) => @sys.exit(1)
+    @core.LintFailed(_) => @sys.exit(1)
     other => { @debug.debug(other); @sys.exit(2) }
   }
 }
