@@ -1,0 +1,118 @@
+---
+import {
+  "moonbitlang/async@0.22.9",
+  "moonbitlang/async@0.22.9/fs",
+  "moonbitlang/async@0.22.9/process",
+  "moonbitlang/core/test",
+}
+---
+
+struct Fixture {
+  home : String
+  project : String
+  cache_home : String
+}
+
+async fn Fixture::lint(
+  self : Fixture,
+  args : Array[String],
+  expected? : Int = 0,
+) -> String {
+  let (status, out, err) = @process.collect_output(
+    "moon",
+    ["run", "lint.mbtx", "--", ..args],
+    cwd=self.project,
+    extra_env={ "MOON_HOME": self.home, "XDG_CACHE_HOME": self.cache_home },
+  )
+  let stdout = out.text()
+  if status != expected {
+    let argv = args.join(", ")
+    fail(
+      "lint args [\{argv}] exited \{status}, expected \{expected}\nstdout:\n\{stdout}\nstderr:\n\{err.text()}",
+    )
+  }
+  stdout
+}
+
+async fn admiral_interface(fixture : Fixture) -> Unit {
+  let help = fixture.lint(["--help"])
+  assert_true(help.contains("--fix"))
+  assert_true(help.contains("--no-cache"))
+  ignore(fixture.lint(["missing.mbt"], expected=2))
+  ignore(fixture.lint([], expected=2))
+}
+
+async fn cache_timestamps(cache : String) -> Map[String, (Int64, Int)] {
+  let timestamps = Map([])
+  for name in @fs.readdir(cache) {
+    let path = "\{cache}/\{name}"
+    if @fs.kind(path) == Regular {
+      timestamps[name] = @fs.mtime(path)
+    }
+  }
+  timestamps
+}
+
+async fn cache_findings_and_changed_source(fixture : Fixture) -> Unit {
+  let name = "source with spaces.mbt"
+  let source = "\{fixture.project}/\{name}"
+  let cache = "\{fixture.cache_home}/mbtlint"
+  @fs.write_file(source, "fn demo() { let mut value = 1; println(value) }\n")
+  let uncached = fixture.lint(["--no-cache", name], expected=1)
+  assert_false(@fs.exists(cache))
+  let cold = fixture.lint([name], expected=1)
+  @test.assert_eq(cold, uncached)
+  assert_true(cold.contains("error [no-mut]"))
+  assert_true(cold.contains("warning [project/no-println]"))
+  let slots = cache_timestamps(cache)
+  assert_false(slots.is_empty())
+  @test.assert_eq(fixture.lint([name], expected=1), cold)
+  @test.assert_eq(cache_timestamps(cache), slots)
+  @fs.write_file(source, "fn demo() { println(1) }\n")
+  let changed = fixture.lint([name])
+  assert_false(changed.contains("no-mut"))
+  assert_true(changed.contains("warning [project/no-println]"))
+}
+
+async fn fix_preserves_unicode_and_line_endings(fixture : Fixture) -> Unit {
+  let path = "\{fixture.project}/fix.mbtx"
+  let original = b"\xEF\xBB\xBF---\r\n// \xF0\x9F\x8C\x99\r\n---\r\nfn f(x : Int) { check(x=x) }\r\n"
+  let fixed = b"\xEF\xBB\xBF---\r\n// \xF0\x9F\x8C\x99\r\n---\r\nfn f(x : Int) { check(x~) }\r\n"
+  @fs.write_file(path, original)
+  assert_true(fixture.lint(["fix.mbtx"]).contains("warning [prefer-label-pun]"))
+  @test.assert_eq(@fs.read_file(path).binary(), original)
+  @test.assert_eq(fixture.lint(["--fix", "fix.mbtx"]), "")
+  @test.assert_eq(@fs.read_file(path).binary(), fixed)
+  @test.assert_eq(fixture.lint(["--fix", "fix.mbtx"]), "")
+  @test.assert_eq(@fs.read_file(path).binary(), fixed)
+}
+
+async fn malformed_inputs_are_never_rewritten(fixture : Fixture) -> Unit {
+  let path = "\{fixture.project}/invalid.mbt"
+  for input in [(b"fn f() {", 1), (b"//\xFF\nlet x = 1", 2)] {
+    let (content, status) = input
+    @fs.write_file(path, content)
+    ignore(fixture.lint(["--fix", "invalid.mbt"], expected=status))
+    @test.assert_eq(@fs.read_file(path).binary(), content)
+  }
+}
+
+async fn main {
+  let (status, out, err) = @process.collect_output("sh", [
+    "test/prepare-script-home.sh",
+  ])
+  if status != 0 {
+    fail("Preparing the isolated Moon registry exited \{status}:\n\{err.text()}")
+  }
+  let home = out.text().trim().to_owned()
+  defer @fs.rmdir(home, recursive=true)
+  let project = "\{home}/project"
+  @fs.mkdir(project)
+  @fs.write_file("\{project}/lint.mbtx", @fs.read_file("lint.mbtx"))
+  let fixture = { home, project, cache_home: "\{project}/cache" }
+  admiral_interface(fixture)
+  cache_findings_and_changed_source(fixture)
+  fix_preserves_unicode_and_line_endings(fixture)
+  malformed_inputs_are_never_rewritten(fixture)
+  println("4 CLI acceptance cases passed")
+}
