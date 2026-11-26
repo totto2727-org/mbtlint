@@ -26,7 +26,7 @@ jobs:
       - name: Check the standalone script and inspect the package
         run: |
           nix develop .#ci --command bash -e -c '
-            moon fmt --check README.mbt.md lint.mbtx test/test_script.mbtx
+            moon fmt --check README.mbt.md lint.mbtx test/*.mbtx bench/*.mbtx
             moon package --list
             moon run --target native test/test_script.mbtx
           '

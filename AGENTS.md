@@ -23,7 +23,7 @@ Keep `README.md` as a relative symlink to `README.mbt.md`.
 | --- | --- |
 | `moon update` | Update the local Mooncakes registry index |
 | `moon fmt --check` | Check library formatting |
-| `moon fmt --check README.mbt.md lint.mbtx test/test_script.mbtx` | Check the README and standalone scripts |
+| `moon fmt --check README.mbt.md lint.mbtx test/*.mbtx bench/*.mbtx` | Check the README and standalone scripts |
 | `moon check --deny-warn` | Type-check the library and fail on warnings |
 | `moon build` | Build the library |
 | `moon test` | Run the parser-backed library tests |
