@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "totto2727/mbtlint/preset"
+
+import {
+  "totto2727/mbtlint/core",
+}
+
+// Values
+pub fn recommended() -> @core.Config
+
+pub fn with_collections(@core.Config) -> @core.Config
+
+pub fn with_conventions(@core.Config) -> @core.Config
+
+pub fn with_safety(@core.Config) -> @core.Config
+
+pub fn with_simplifications(@core.Config) -> @core.Config
+
+pub fn with_static_contracts(@core.Config) -> @core.Config
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

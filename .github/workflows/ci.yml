@@ -1,8 +1,5 @@
 name: CI
 
-# Keep this trigger when creating a project from the template.
-# Change it only for an explicit user request or a demonstrated project requirement.
-# Do not replace main-push publication with tag or release triggers.
 on:
   pull_request:
   push:
@@ -26,3 +23,10 @@ jobs:
       - uses: totto2727-org/monorepo/.github/actions/check-moonbit@main
         with:
           dev-shell: ci
+      - name: Check the standalone script and inspect the package
+        run: |
+          nix develop .#ci --command bash -e -c '
+            moon fmt --check README.mbt.md lint.mbtx test/*.mbtx bench/*.mbtx
+            moon package --list
+            moon run --target native test/test_script.mbtx
+          '

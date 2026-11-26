@@ -1,0 +1,26 @@
+---
+import {
+  "moonbitlang/async@0.22.9",
+  "moonbitlang/core/debug",
+  "moonbitlang/x@0.5.7/sys",
+  "totto2727/mbtlint@0.1.0/core",
+  "totto2727/mbtlint@0.1.0/preset",
+}
+---
+
+fn no_println() -> @core.Rule {
+  @core.Rule("project/no-println", ctx => @core.Listener(on_expr=expr => {
+    if expr is Apply(func=Ident(id={ name: Ident(name="println"), .. }, ..), loc~, ..) {
+      (ctx.report)(loc, "Use the project logger instead of println.")
+    }
+  }), revision="1")
+}
+
+async fn main {
+  let config = @preset.recommended().with_rule(no_println(), severity=Warning)
+  let app = @core.engine(config)
+  try app.run() catch {
+    @core.LintFailed(_) => @sys.exit(1)
+    other => { @debug.debug(other); @sys.exit(2) }
+  }
+}

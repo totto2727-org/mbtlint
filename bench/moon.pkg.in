@@ -1,0 +1,17 @@
+supported_targets = "wasm+js+native"
+
+import {
+  "moonbitlang/async",
+  "moonbitlang/core/env",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/string",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+  "totto2727/mbtlint/core",
+  "totto2727/mbtlint/rule",
+  "totto2727/mbtlint/preset",
+}
+
+options(
+  "is-main": true,
+)

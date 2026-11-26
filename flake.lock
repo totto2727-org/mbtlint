@@ -1,45 +1,5 @@
 {
   "nodes": {
-    "moon-nix": {
-      "inputs": {
-        "moonbit-overlay": [
-          "moonbit-overlay"
-        ],
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1795174802,
-        "narHash": "sha256-pVGMsUoKphdSeu1Plu+scAqsw99KkJPG8G3X6YlCmW4=",
-        "owner": "totto2727-org",
-        "repo": "moon-nix",
-        "rev": "3ef17d82ff89135188c8f40f3420bd9f2e923835",
-        "type": "github"
-      },
-      "original": {
-        "owner": "totto2727-org",
-        "repo": "moon-nix",
-        "rev": "3ef17d82ff89135188c8f40f3420bd9f2e923835",
-        "type": "github"
-      }
-    },
-    "moon-registry": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1787349202,
-        "narHash": "sha256-yGLMEeR1ofiyfhdNFK8SopjodYIGyLu2ZT4X1F/cIvM=",
-        "ref": "refs/heads/main",
-        "rev": "be1f10130a8ac0011c04f7e11216c3c58c2fc888",
-        "revCount": 13318,
-        "type": "git",
-        "url": "https://mooncakes.io/git/index"
-      },
-      "original": {
-        "type": "git",
-        "url": "https://mooncakes.io/git/index"
-      }
-    },
     "moonbit-overlay": {
       "inputs": {
         "nixpkgs": [
@@ -48,16 +8,17 @@
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1794645942,
-        "narHash": "sha256-IZpHUdqLkbe4SEBpt9IzKz563bMiiXLsWUQgEhHjyGA=",
+        "lastModified": 1795168223,
+        "narHash": "sha256-+Q5gvGC2PAURDgBsJRAHaAGprrJ6g9aAzi1MsgFO/+c=",
         "owner": "moonbit-community",
         "repo": "moonbit-overlay",
-        "rev": "654060dff5fc865113bfc98cdd08b955f94b9535",
+        "rev": "85573a36872d7fa6f8753ea0da7bdbe056d6301f",
         "type": "github"
       },
       "original": {
         "owner": "moonbit-community",
         "repo": "moonbit-overlay",
+        "rev": "85573a36872d7fa6f8753ea0da7bdbe056d6301f",
         "type": "github"
       }
     },
@@ -77,8 +38,6 @@
     },
     "root": {
       "inputs": {
-        "moon-nix": "moon-nix",
-        "moon-registry": "moon-registry",
         "moonbit-overlay": "moonbit-overlay",
         "nixpkgs": "nixpkgs"
       }
