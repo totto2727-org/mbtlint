@@ -1,0 +1,227 @@
+---
+import {
+  "moonbitlang/async@0.22.9",
+  "moonbitlang/async@0.22.9/fs",
+  "moonbitlang/async@0.22.9/process",
+  "moonbitlang/async@0.22.9/stdio",
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+}
+---
+
+let packages : ReadOnlyArray[String] = ["core", "rule", "preset"]
+
+struct Settings {
+  reps : Int
+  rounds : Int
+  tool_copies : Int
+}
+
+fn env_int(name : String, fallback : Int) -> Int raise {
+  match @env.get_env_var(name) {
+    None | Some("") => fallback
+    Some(value) => @string.parse_int(value[:], radix=10)
+  }
+}
+
+fn Settings::from_env() -> Settings raise {
+  let reps = env_int("REPS", 7)
+  let rounds = env_int("ROUNDS", 40)
+  let tool_copies = env_int("TOOL_COPIES", 40)
+  guard reps >= 5 && rounds >= 1 && tool_copies >= 1 else {
+    fail("Expected REPS >= 5, ROUNDS >= 1 and TOOL_COPIES >= 1")
+  }
+  { reps, rounds, tool_copies }
+}
+
+async fn copy_file(from : String, to : String) -> Unit {
+  @fs.write_file(to, @fs.read_file(from))
+}
+
+async fn copy_tree(from : String, to : String) -> Unit {
+  @fs.mkdir(to)
+  for entry in @fs.readdir(from) {
+    let src = "\{from}/\{entry}"
+    let dst = "\{to}/\{entry}"
+    match @fs.kind(src) {
+      Directory => copy_tree(src, dst)
+      Regular => copy_file(src, dst)
+      _ => fail("Cannot copy non-file benchmark input: \{src}")
+    }
+  }
+}
+
+async fn build_side(project : String, build : String) -> String {
+  @fs.mkdir("\{build}/bench", recursive=true)
+  copy_file("\{project}/moon.mod", "\{build}/moon.mod")
+  for pkg in packages {
+    copy_tree("\{project}/\{pkg}", "\{build}/\{pkg}")
+  }
+  copy_file("bench/moon.pkg.in", "\{build}/bench/moon.pkg")
+  copy_file("bench/main.mbt.in", "\{build}/bench/main.mbt")
+  let cache = "\{project}/.mooncakes"
+  if @fs.exists(cache) {
+    copy_tree(cache, "\{build}/.mooncakes")
+  }
+  let (status, out, err) = @process.collect_output(
+    "moon", ["build", "--target", "native", "--release", "bench"],
+    cwd=build,
+  )
+  @stdio.stderr.write(out)
+  @stdio.stderr.write(err)
+  guard status == 0 else { fail("Benchmark build at \{build} exited \{status}") }
+  "\{build}/_build/native/release/build/bench/bench.exe"
+}
+
+async fn stage_inputs(baseline : String, results : String) -> Array[String] {
+  let inputs = []
+  for pkg in packages {
+    @fs.mkdir("\{results}/source/\{pkg}", recursive=true)
+    let source = "\{baseline}/\{pkg}"
+    let names = @fs.readdir(source, include_hidden=false)
+    names.sort_by(String::lexical_compare)
+    for name in names {
+      let src = "\{source}/\{name}"
+      if name.has_suffix(".mbt") && @fs.kind(src) == Regular {
+        let dst = "source/\{pkg}/\{name}"
+        copy_file(src, "\{results}/\{dst}")
+        inputs.push(dst)
+      }
+    }
+  }
+  copy_file("bench/fixture.mbt.txt", "\{results}/source/benchmark-fixture.mbt")
+  copy_file("\{baseline}/lint.mbtx", "\{results}/source/lint.mbtx")
+  inputs.push("source/benchmark-fixture.mbt")
+  inputs.push("source/lint.mbtx")
+  inputs
+}
+
+fn c_locale() -> Map[String, String] {
+  { "LC_ALL": "C" }
+}
+
+async fn list_rules(exe : String, results : String, side : String) -> Bytes {
+  let (status, out, err) = @process.collect_output(
+    exe, ["list"], cwd=results, extra_env=c_locale(),
+  )
+  guard status == 0 else { fail("\{side} rule listing exited \{status}: \{err.text()}") }
+  @fs.write_file("\{results}/\{side}-rules.txt", out)
+  out.binary()
+}
+
+fn timing_fields(stderr : String) -> String raise {
+  guard stderr.split("\n").to_array() is [real, user, sys, ""] &&
+    real.has_prefix("real ") && user.has_prefix("user ") && sys.has_prefix("sys ") else {
+    fail("Expected only POSIX time output on stderr:\n\{stderr}")
+  }
+  "\{real[5:]}\t\{user[5:]}\t\{sys[4:]}"
+}
+
+async fn measure(
+  exe : String,
+  args : Array[String],
+  results : String,
+  samples : @fs.File,
+  cohort~ : String,
+  trial~ : Int,
+  side~ : String,
+) -> Bytes {
+  let path = "\{results}/\{side}.out"
+  let (status, err) = @process.collect_stderr(
+    "time", ["-p", exe, ..args],
+    cwd=results,
+    extra_env=c_locale(),
+    stdout=@process.redirect_to_file(path),
+  )
+  guard status == 0 else {
+    fail("\{cohort} trial \{trial} (\{side}) exited \{status}:\n\{err.text()}")
+  }
+  let fields = timing_fields(err.text())
+  samples.write("\{cohort}\t\{trial}\t\{side}\t\{fields}\n")
+  @fs.read_file(path).binary()
+}
+
+fn drop_summary(out : Bytes) -> Bytes raise {
+  let end = out.length() - 1
+  guard end >= 0 && out[end] == b'\n' else { fail("Missing core cohort summary") }
+  for i = end - 1; i >= 0; i = i - 1 {
+    if out[i] == b'\n' {
+      return out[:i + 1].to_owned()
+    }
+  }
+  b""
+}
+
+async fn compare(
+  baseline : String,
+  candidate : String,
+  results : String,
+  settings : Settings,
+) -> Unit {
+  let base_exe = build_side(baseline, "\{results}/base-project")
+  let cand_exe = build_side(candidate, "\{results}/candidate-project")
+  let inputs = stage_inputs(baseline, results)
+  let tool_inputs = ["tool", "--no-cache"]
+  for _ in 0..<settings.tool_copies {
+    tool_inputs.append(inputs)
+  }
+  let rules = list_rules(base_exe, results, "base")
+  guard rules == list_rules(cand_exe, results, "candidate") else {
+    fail("Baseline and candidate list different builtin rules")
+  }
+  let cohorts = ["parse-only", "decl-only", "recommended", "collections", "all", "tool"]
+  let rule_text = @fs.read_file("\{results}/base-rules.txt").text()
+  for line in rule_text.split("\n") {
+    if !line.is_empty() {
+      cohorts.push(line.to_owned())
+    }
+  }
+  let sample_path = "\{results}/samples.tsv"
+  let samples = @fs.open(sample_path, mode=WriteOnly, create_mode=CreateNew)
+  defer samples.close()
+  samples.write("cohort\ttrial\tside\twall_s\tuser_s\tsystem_s\n")
+  for cohort in cohorts {
+    @stdio.stderr.write("Measuring \{cohort}\n")
+    let args = if cohort == "tool" {
+      tool_inputs
+    } else {
+      ["core", cohort, settings.rounds.to_string(), ..inputs]
+    }
+    let mut first = b""
+    for trial in 1..<=settings.reps {
+      let base = measure(base_exe, args, results, samples, cohort~, trial~, side="base")
+      let candidate = measure(cand_exe, args, results, samples, cohort~, trial~, side="candidate")
+      guard base == candidate else {
+        fail("Baseline and candidate output differ for \{cohort} trial \{trial}")
+      }
+      if trial == 1 {
+        first = base
+        @fs.write_file("\{results}/\{cohort}.findings.txt", base)
+        if cohort == "all" {
+          @fs.write_file("\{results}/all.once.txt", drop_summary(base))
+        } else if cohort == "tool" {
+          let once = @fs.read_file("\{results}/all.once.txt").binary()
+          let size = once.length()
+          let expected = Bytes::makei(size * settings.tool_copies, i => once[i % size])
+          guard base == expected else {
+            fail("Tool output does not match repeated all-rule diagnostics")
+          }
+        }
+      } else if base != first {
+        fail("Output changed between trials for \{cohort} trial \{trial}")
+      }
+    }
+  }
+  println(sample_path)
+}
+
+async fn main {
+  guard @env.args()[:] is [_, base, candidate, results] else {
+    fail("Usage: moon run --target native bench/compare.mbtx -- BASE_PROJECT CANDIDATE_PROJECT NEW_RESULTS_DIR")
+  }
+  let settings = Settings::from_env()
+  let base = @fs.realpath(base)
+  let candidate = @fs.realpath(candidate)
+  @fs.mkdir(results)
+  compare(base, candidate, @fs.realpath(results), settings)
+}

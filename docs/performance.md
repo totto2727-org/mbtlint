@@ -19,7 +19,7 @@ base=$(mktemp -d "$PWD/tmp/mbtlint-perf-base.XXXXXX")
 git archive HEAD | tar -x -C "$base"
 if [ -d .mooncakes ]; then ln -s "$PWD/.mooncakes" "$base/.mooncakes"; fi
 REPS=5 ROUNDS=16 TOOL_COPIES=16 \
-  bash bench/compare.sh "$base" "$PWD" "$PWD/tmp/mbtlint-perf-results"
+  moon run --target native bench/compare.mbtx -- "$base" "$PWD" "$PWD/tmp/mbtlint-perf-results"
 ```
 
 The results directory must not already exist.
@@ -29,7 +29,9 @@ They include parse-only, declaration-only, recommended, collection, all-rule, an
 `tool` launches the actual Admiral app with all builtins set to warnings and `--no-cache`, including argument handling, file reads, UTF-8 decoding, lint and diagnostic rendering.
 `TOOL_COPIES` repeats the list of paths in one invocation, so it measures uncached linting on a warm filesystem rather than cold storage.
 
-The script alternates baseline and candidate processes and writes wall, user and system seconds to `samples.tsv`.
+The script alternates baseline and candidate processes and writes wall, user and system seconds from the system `time -p` command to `samples.tsv`.
+Use `nix develop` to make that executable available on `PATH`.
+If the timing resolution is too low for the samples, increase `ROUNDS` and `TOOL_COPIES`.
 It fails on process errors, parse diagnostics, missing per-rule findings, or a mismatch in output.
 It compares the ordered findings, messages, ranges, and fix edits from one pass per core sample, as well as finding counts across all repeats.
 It also checks that the tool's output equals one full diagnostic listing for every repetition of its path list.

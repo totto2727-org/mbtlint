@@ -2,10 +2,112 @@
 import {
   "moonbitlang/async@0.22.9",
   "moonbitlang/async@0.22.9/fs",
+  "moonbitlang/async@0.22.9/io",
   "moonbitlang/async@0.22.9/process",
+  "moonbitlang/core/bench",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
   "moonbitlang/core/test",
+  "moonbitlang/x@0.5.7/crypto",
 }
 ---
+
+#derive(FromJson)
+struct ModuleSource {
+  kind : String
+}
+
+#derive(FromJson)
+struct ResolvedModule {
+  name : String
+  version : String
+  source : ModuleSource
+}
+
+#derive(FromJson)
+struct Dependency {
+  name : String
+  from : Int
+  to : Int
+}
+
+#derive(FromJson)
+struct DependencyTree {
+  root : Int
+  modules : Array[ResolvedModule]
+  edges : Array[Dependency]
+}
+
+async fn checked_moon(args : Array[String]) -> String {
+  let (status, out, err) = @process.collect_output("moon", args)
+  guard status == 0 else {
+    fail("moon \{args.join(" ")} exited \{status}:\n\{out.text()}\n\{err.text()}")
+  }
+  out.text()
+}
+
+async fn stage_entry(
+  registry : String,
+  module_ : ResolvedModule,
+  archive : &@io.Data,
+  index : &@io.Data,
+) -> Unit {
+  let name = module_.name
+  guard name.split("/").to_array() is [owner, _] else {
+    fail("Invalid Moon module name: \{name}")
+  }
+  let cache = "\{registry}/cache/\{name}"
+  @fs.mkdir(cache, recursive=true, allow_exist=true)
+  @fs.mkdir("\{registry}/index/user/\{owner}", recursive=true, allow_exist=true)
+  @fs.write_file("\{cache}/\{module_.version}.zip", archive)
+  @fs.write_file("\{registry}/index/user/\{name}.index", index)
+}
+
+async fn stage_registry(home : String) -> Unit {
+  let upstream = match @env.get_env_var("MOON_HOME") {
+    None | Some("") => {
+      guard @env.get_env_var("HOME") is Some(path) else { fail("HOME is unset") }
+      "\{path}/.moon"
+    }
+    Some(path) => path
+  }
+  let target = "\{home}/package"
+  ignore(checked_moon(["package", "--target-dir", target]))
+  let tree : DependencyTree = @json.from_json(
+    @json.parse(checked_moon(["tree", "--json"])),
+  )
+  let registry = "\{home}/registry"
+  for module_ in tree.modules {
+    if module_.source.kind == "registry" {
+      let name = module_.name
+      stage_entry(
+        registry,
+        module_,
+        @fs.read_file("\{upstream}/registry/cache/\{name}/\{module_.version}.zip"),
+        @fs.read_file("\{upstream}/registry/index/user/\{name}.index"),
+      )
+    }
+  }
+  let root = tree.modules[tree.root]
+  let archive_name = root.name.replace_all(old="/", new="-")
+  let archive = @fs.read_file("\{target}/publish/\{archive_name}-\{root.version}.zip")
+  let checksum = @crypto.bytes_to_hex_string(@crypto.sha256(archive.binary()))
+  let deps : Map[String, Json] = Map([])
+  for edge in tree.edges {
+    if edge.from == tree.root {
+      deps[edge.name] = Json::string(tree.modules[edge.to].version)
+    }
+  }
+  let index : Json = {
+    "name": root.name,
+    "version": root.version,
+    "checksum": checksum,
+    "yanked": false,
+    "deps": Json::object(deps),
+  }
+  stage_entry(registry, root, archive, "\{index.stringify()}\n")
+  @fs.rmdir(target, recursive=true)
+}
 
 struct Fixture {
   home : String
@@ -13,17 +115,32 @@ struct Fixture {
   cache_home : String
 }
 
+async fn Fixture::new(home : String) -> Fixture {
+  let project = "\{home}/project"
+  @fs.mkdir(project)
+  @fs.write_file("\{project}/lint.mbtx", @fs.read_file("lint.mbtx"))
+  { home, project, cache_home: "\{project}/cache" }
+}
+
+async fn Fixture::run(
+  self : Fixture,
+  args : Array[String],
+  cache_home~ : String,
+) -> (Int, &@io.Data, &@io.Data) {
+  @process.collect_output(
+    "moon",
+    ["run", "lint.mbtx", "--", ..args],
+    cwd=self.project,
+    extra_env={ "MOON_HOME": self.home, "XDG_CACHE_HOME": cache_home },
+  )
+}
+
 async fn Fixture::lint(
   self : Fixture,
   args : Array[String],
   expected? : Int = 0,
 ) -> String {
-  let (status, out, err) = @process.collect_output(
-    "moon",
-    ["run", "lint.mbtx", "--", ..args],
-    cwd=self.project,
-    extra_env={ "MOON_HOME": self.home, "XDG_CACHE_HOME": self.cache_home },
-  )
+  let (status, out, err) = self.run(args, cache_home=self.cache_home)
   let stdout = out.text()
   if status != expected {
     let argv = args.join(", ")
@@ -97,22 +214,113 @@ async fn malformed_inputs_are_never_rewritten(fixture : Fixture) -> Unit {
   }
 }
 
-async fn main {
-  let (status, out, err) = @process.collect_output("sh", [
-    "test/prepare-script-home.sh",
-  ])
-  if status != 0 {
-    fail("Preparing the isolated Moon registry exited \{status}:\n\{err.text()}")
-  }
-  let home = out.text().trim().to_owned()
-  defer @fs.rmdir(home, recursive=true)
-  let project = "\{home}/project"
-  @fs.mkdir(project)
-  @fs.write_file("\{project}/lint.mbtx", @fs.read_file("lint.mbtx"))
-  let fixture = { home, project, cache_home: "\{project}/cache" }
+async fn accept(fixture : Fixture) -> Unit {
   admiral_interface(fixture)
   cache_findings_and_changed_source(fixture)
   fix_preserves_unicode_and_line_endings(fixture)
   malformed_inputs_are_never_rewritten(fixture)
   println("4 CLI acceptance cases passed")
+}
+
+async fn copy_benchmark_sources(fixture : Fixture) -> (Array[String], Int64) {
+  let files = []
+  let mut size = 0L
+  for pkg in ["core", "preset", "rule"] {
+    @fs.mkdir("\{fixture.project}/\{pkg}")
+    let names = @fs.readdir(pkg, include_hidden=false)
+    names.sort_by(String::lexical_compare)
+    for name in names {
+      let source = "\{pkg}/\{name}"
+      if name.has_suffix(".mbt") && @fs.kind(source) == Regular {
+        let content = @fs.read_file(source).binary()
+        @fs.write_file("\{fixture.project}/\{source}", content)
+        files.push(source)
+        size += content.length().to_int64()
+      }
+    }
+  }
+  (files, size)
+}
+
+async fn measure(
+  fixture : Fixture,
+  args : Array[String],
+  cache_home~ : String,
+) -> (Double, Bytes) {
+  let start = @bench.monotonic_clock_start()
+  let (status, out, err) = fixture.run(args, cache_home~)
+  let elapsed = @bench.monotonic_clock_end(start) / 1000.0
+  guard status == 1 && out.text().contains("[no-mut]") else {
+    fail("Expected no-mut lint errors, got exit \{status}:\n\{err.text()}\n\{out.text()}")
+  }
+  (elapsed, out.binary())
+}
+
+fn one_decimal(value : Double) -> String {
+  let tenths = (value * 10.0).round().to_int()
+  "\{tenths / 10}.\{tenths % 10}"
+}
+
+async fn measure_cache(fixture : Fixture) -> Unit {
+  let (files, size) = copy_benchmark_sources(fixture)
+  let args = [["--no-cache", ..files], files, files]
+  let modes = ["uncached", "cold", "warm"]
+  let samples = Array::makei(modes.length(), _ => [])
+  let populated = "\{fixture.project}/warm-cache"
+  let (_, reference) = measure(fixture, files, cache_home=populated)
+  let entries = "\{populated}/mbtlint"
+  let before = cache_timestamps(entries)
+  @test.assert_eq(before.length(), files.length())
+  let reps = 9
+  for round in 0..<reps {
+    for offset in 0..<modes.length() {
+      let mode = (round + offset) % modes.length()
+      let name = modes[mode]
+      let cache = if name == "warm" {
+        populated
+      } else {
+        "\{fixture.project}/\{name}-\{round}"
+      }
+      let (elapsed, output) = measure(fixture, args[mode], cache_home=cache)
+      guard output == reference else { fail("\{name} changed the diagnostics") }
+      if name == "uncached" && @fs.exists(cache) {
+        fail("--no-cache wrote a cache")
+      }
+      samples[mode].push(elapsed)
+    }
+  }
+  @test.assert_eq(cache_timestamps(entries), before)
+  let lines = reference.iter().filter(byte => byte == b'\n').count()
+  println("\{files.length()} files, \{size} bytes, \{lines} diagnostic lines, \{reps} samples per mode")
+  for i, name in modes {
+    let elapsed = samples[i]
+    elapsed.sort()
+    let median = one_decimal(elapsed[reps / 2])
+    let min = one_decimal(elapsed[0])
+    let max = one_decimal(elapsed[reps - 1])
+    println("\{name}: median \{median} ms (range \{min}..\{max})")
+  }
+}
+
+async fn main {
+  match @env.args()[:] {
+    [_, "prepare-home"] => {
+      let home = @fs.tmpdir(prefix="mbtlint-script-home")
+      errdefer @fs.rmdir(home, recursive=true)
+      stage_registry(home)
+      println(home)
+    }
+    ([_] | [_, "measure-cache"]) as args => {
+      let home = @fs.tmpdir(prefix="mbtlint-script-home")
+      defer @fs.rmdir(home, recursive=true)
+      stage_registry(home)
+      let fixture = Fixture::new(home)
+      if args.length() == 1 {
+        accept(fixture)
+      } else {
+        measure_cache(fixture)
+      }
+    }
+    _ => fail("Expected no arguments, prepare-home, or measure-cache")
+  }
 }

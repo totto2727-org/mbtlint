@@ -24,7 +24,7 @@ On a cache hit, rule callbacks do not run.
 
 ## Measured script invocation
 
-`python3 -B test/measure_cache.py` times the entire `moon run lint.mbtx` process, not just hashing or a rule callback.
+`moon run --target native test/test_script.mbtx -- measure-cache` times the entire `moon run lint.mbtx` process, not just hashing or a rule callback.
 On macOS arm64 with Moon `0.1.20261119`, 64 files in the three packages (98,919 bytes) produced identical output and exit status across all three modes.
 After one unmeasured compilation, nine samples per mode in rotating order gave these wall times:
 

@@ -14,20 +14,21 @@ In a standalone script, put the module version before the package suffix, as in 
 
 ## Run the example
 
-Run `nix develop` to enter the pinned environment, or use Moon `0.1.20261119` with `sh`, `jq`, and `shasum` installed.
-This checkout is not published on Mooncakes.
-That Moon version resolves standalone script imports through the registry, not through a neighboring `moon.work`.
-For local development, prepare an isolated registry fixture with `sh`, `jq`, and `shasum` from the repository root:
+Run `nix develop` to enter the pinned environment, or use Moon `0.1.20261119`.
+Pushes to main publish `totto2727/mbtlint` on Mooncakes.
+Use the isolated fixture below to try an unreleased checkout.
+This Moon version resolves standalone script imports through the registry, not through a neighboring `moon.work`.
+Prepare the fixture from the repository root:
 
 ```sh
-script_home=$(sh test/prepare-script-home.sh)
+script_home=$(moon run --target native test/test_script.mbtx -- prepare-home)
 MOON_HOME="$script_home" moon run lint.mbtx -- --help
 MOON_HOME="$script_home" moon run lint.mbtx -- core/engine.mbt rule/no_mut.mbt
 ```
 
-The preparation step packages the checkout and stages only its resolved dependencies under `tmp/`.
+The preparation step packages the checkout and stages its resolved dependencies in a temporary Moon home.
 It does not publish a package, install a launcher, or modify registry entries in your regular Moon home.
-Prepare a fresh home after changing the library.
+Prepare a fresh home after changing the library, and remove the temporary home when you no longer need it.
 Once the script import is available from the registry you use, the ordinary invocation is `moon run lint.mbtx -- file.mbt`.
 
 ## Configure rules
@@ -92,7 +93,7 @@ Only supply a revision when the rule is deterministic, and change it when the ca
 
 Run `moon test` for parser-backed tests and `moon fmt --check` for library formatting.
 Run `moon run --target native test/test_script.mbtx` from the repository root to exercise the actual `moon run lint.mbtx` entry point in a separate project.
-Run `python3 -B test/measure_cache.py` to compare disabled, empty, and populated caches on identical input and diagnostics.
+Run `moon run --target native test/test_script.mbtx -- measure-cache` to compare disabled, empty, and populated caches on identical input and diagnostics.
 See [performance](docs/performance.md) for the benchmark commands and measurement scope.
 See [AGENTS.md](AGENTS.md) for development and CI commands.
 
