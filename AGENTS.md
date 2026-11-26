@@ -45,5 +45,8 @@ Use the isolated script fixture for local registry resolution rather than publis
 Keep validation on pull requests and pushes to `main`.
 Change inherited workflows only for an explicit request or a demonstrated project requirement.
 Keep shared validation actions on `@main`.
-Do not enable Mooncakes or FlakeHub publication without explicit approval.
-If publication is later authorized, keep the template's main-push policy rather than replacing it with tag or release triggers.
+Keep the Mooncakes publish workflow enabled on pushes to `main`.
+The release artifact is `totto2727/mbtlint`, not a CLI executable.
+The shared publishing action uses the `MOONCAKES_TOKEN` GitHub Actions secret and skips versions already on Mooncakes.
+Review `moon publish --dry-run` before merging a new module version.
+Use Moon for project tests and test scripts; do not introduce another runner.
